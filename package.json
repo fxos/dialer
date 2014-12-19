@@ -2,7 +2,6 @@
   "name": "fxos-dialer",
   "version": "0.0.0",
   "description": "FxOS dialer dependencies.",
-  "main": "index.js",
   "scripts": {},
   "repository": {
     "type": "git",
@@ -18,7 +17,7 @@
   },
   "devDependencies": {},
   "dependencies": {
-    "fxos-build": "*",
+    "fxos-build": "0.1.x",
     "gulp": "3.8.x"
   }
 }
