@@ -1,0 +1,20 @@
+{
+	"name": "Dialer",
+	"description": "FxOS Dialer",
+	"type": "certified",
+	"launch_path": "/index.html",
+	"developer": {
+		"name": "The Gaia Team",
+		"url": "https://github.com/fxos/"
+	},
+	"orientation": "portrait",
+	"permissions": {
+		"themable": {},
+		"telephony": {},
+		"voicemail": {},
+		"idle": {}
+	},
+	"icons": {
+		"128": "/icons/icon_128.png"
+	}
+}

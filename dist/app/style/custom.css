@@ -1,0 +1,15 @@
+/* XXX/drs: Here's a proposal. Any custom styles that we want accessible through
+ * the on-device developer tools go here. The dev tools can automatically detect
+ * this file, perhaps by file name. We can limit color and style changes to a
+ * small subset of changes that are more practical to users, rather than
+ * bombarding them with every single style. One problem with this is that web
+ * components sandbox a lot of styles, but maybe we can figure out some way
+ * around this.
+ */
+
+/**
+ * The color for keypad buttons on the dial pad.
+ */
+.keypad-button {
+	background: teal;
+}
