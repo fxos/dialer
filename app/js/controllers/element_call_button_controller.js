@@ -7,6 +7,7 @@ export default class ElementCallButtonController extends Controller {
 	}
 
 	handleClick(e) {
+		console.log('phone number', this.view.phoneNumber());
 		navigator.mozTelephony.dial(this.view.phoneNumber());
 	}
 }

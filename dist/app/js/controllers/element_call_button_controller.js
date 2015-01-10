@@ -23,6 +23,7 @@ define(["exports", "js/views/element_call_button_view", "components/fxos-mvc/dis
     _extends(ElementCallButtonController, Controller);
 
     ElementCallButtonController.prototype.handleClick = function (e) {
+      console.log("phone number", this.view.phoneNumber());
       navigator.mozTelephony.dial(this.view.phoneNumber());
     };
 
