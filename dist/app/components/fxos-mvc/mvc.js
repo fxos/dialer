@@ -1,143 +1,169 @@
-define(["exports"], function (exports) {
-  "use strict";
+/**
+ * Model
+ */
+export class Model {
+	constructor(properties) {
+		properties = properties || {};
 
-  var Model = (function () {
-    var Model = function Model(properties) {
-      var _this = this;
-      properties = properties || {};
+		for (var key in properties) {
+			this[key] = properties[key];
+		}
 
-      for (var key in properties) {
-        this[key] = properties[key];
-      }
+		this.observableProperties = {};
 
-      this.observableProperties = {};
+		Object.observe(this, (changes) => {
+			changes.forEach((change) => {
+				var handlers = this.observableProperties[change.name];
+				if (handlers) {
+					handlers.forEach((handler) => {
+						handler(change);
+					});
+				}
+			});
+		});
+	}
 
-      Object.observe(this, function (changes) {
-        changes.forEach(function (change) {
-          var handlers = _this.observableProperties[change.name];
-          if (handlers) {
-            handlers.forEach(function (handler) {
-              handler(change);
-            });
-          }
-        });
-      });
-    };
+	on(property, handler) {
+		if (typeof handler !== 'function') {
+			return;
+		}
 
-    Model.prototype.on = function (property, handler) {
-      if (typeof handler !== "function") {
-        return;
-      }
+		if (!this.observableProperties[property]) {
+			ObserveUtils.defineObservableProperties(this, property);
+			this.observableProperties[property] = [];
+		}
 
-      if (!this.observableProperties[property]) {
-        ObserveUtils.defineObservableProperties(this, property);
-        this.observableProperties[property] = [];
-      }
+		this.observableProperties[property].push(handler);
+	}
+}
 
-      this.observableProperties[property].push(handler);
-    };
+/**
+ * View
+ */
+var events = {};
 
-    return Model;
-  })();
+export class View {
+	constructor(options) {
+		options = options || {};
 
-  exports.Model = Model;
+		for (var key in options) {
+			this[key] = options[key];
+		}
 
+		if (!this.el) {
+			this.el = document.createElement('div');
+		}
+	}
 
-  /**
-   * View
-   */
-  var events = {};
+	/**
+	 * Initializes an instance with the specified controller.
+	 *
+	 * @param  {Controller} controller
+	 * @return {View}
+	 */
+	init(controller) {
+		this.controller = controller;
 
-  var View = (function () {
-    var View = function View(options) {
-      options = options || {};
+		return this;
+	}
 
-      for (var key in options) {
-        this[key] = options[key];
-      }
+	/**
+	 * Render the default template.
+	 */
+	render() {
+		this.el.innerHTML = this.template();
+	}
 
-      if (!this.el) {
-        this.el = document.createElement("div");
-      }
-    };
+	/**
+	 * Override to provide a function that returns the template string.
+	 *
+	 * @return {String}
+	 */
+	template() {
+		return '';
+	}
 
-    View.prototype.init = function (controller) {
-      this.controller = controller;
+	/**
+	 * Finds a single child element using the specified selector.
+	 *
+	 * @param  {String} query
+	 * @return {Element | null}
+	 */
+	$(selector) {
+		return this.el.querySelector(selector);
+	}
 
-      return this;
-    };
+	/**
+	 * Finds all child elements using the specified selector.
+	 *
+	 * @param  {String} query
+	 * @return {NodeList}
+	 */
+	$$(selector) {
+		return this.el.querySelectorAll(selector);
+	}
 
-    View.prototype.render = function () {
-      this.el.innerHTML = this.template();
-    };
+	/**
+	 *
+	 *
+	 */
+	on(type, selector, handler) {
+		if (!events[type]) {
+			events[type] = [];
+			window.addEventListener(type, delegateHandler, true);
+		}
 
-    View.prototype.template = function () {
-      return "";
-    };
+		events[type].push({
+			selector: selector,
+			handler: handler
+		});
+	}
 
-    View.prototype.$ = function (selector) {
-      return this.el.querySelector(selector);
-    };
+	/**
+	 *
+	 *
+	 */
+	off(type, selector, handler) {
+		if (!events[type]) {
+			return;
+		}
 
-    View.prototype.$$ = function (selector) {
-      return this.el.querySelectorAll(selector);
-    };
+		events[type] = events[type].filter((delegate) => {
+			if (typeof handler === 'function') {
+				return delegate.selector !== selector ||
+							 delegate.handler  !== handler;
+			}
 
-    View.prototype.on = function (type, selector, handler) {
-      if (!events[type]) {
-        events[type] = [];
-        window.addEventListener(type, delegateHandler, true);
-      }
+			return delegate.selector !== selector;
+		});
+	}
+}
 
-      events[type].push({
-        selector: selector,
-        handler: handler
-      });
-    };
+function delegateHandler(event) {
+	var target = event.target;
 
-    View.prototype.off = function (type, selector, handler) {
-      if (!events[type]) {
-        return;
-      }
+	events[event.type].forEach((delegate) => {
+		if (target.matches(delegate.selector)) {
+			delegate.handler.call(target, event);
+		}
+	});
+}
 
-      events[type] = events[type].filter(function (delegate) {
-        if (typeof handler === "function") {
-          return delegate.selector !== selector || delegate.handler !== handler;
-        }
+/**
+ * Controller
+ */
+export class Controller {
+	constructor(options) {
+		options = options || {};
 
-        return delegate.selector !== selector;
-      });
-    };
+		for (var key in options) {
+			this[key] = options[key];
+		}
 
-    return View;
-  })();
-
-  exports.View = View;
-
-
-  function delegateHandler(event) {
-    var target = event.target;
-
-    events[event.type].forEach(function (delegate) {
-      if (target.matches(delegate.selector)) {
-        delegate.handler.call(target, event);
-      }
-    });
-  }
-
-  var Controller = function Controller(options) {
-    options = options || {};
-
-    for (var key in options) {
-      this[key] = options[key];
-    }
-
-    // Initialize the view (if applicable) when the
-    // controller is instantiated.
-    if (this.view && typeof this.view.init === "function") {
-      this.view.init(this);
-    }
-  };
-
-  exports.Controller = Controller;
-});
+		// Initialize the view (if applicable) when the
+		// controller is instantiated.
+		if (this.view && typeof this.view.init === 'function') {
+			this.view.init(this);
+		}
+	}
+}

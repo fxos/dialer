@@ -1,43 +1,41 @@
-define(["exports"], function (exports) {
-  "use strict";
+//    Copyright 2012 Kap IT (http://www.kapit.fr/)
+//
+//    Licensed under the Apache License, Version 2.0 (the 'License');
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an 'AS IS' BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//    Author : François de Campredon (http://francois.de-campredon.fr/),
 
-  //    Copyright 2012 Kap IT (http://www.kapit.fr/)
-  //
-  //    Licensed under the Apache License, Version 2.0 (the 'License');
-  //    you may not use this file except in compliance with the License.
-  //    You may obtain a copy of the License at
-  //
-  //        http://www.apache.org/licenses/LICENSE-2.0
-  //
-  //    Unless required by applicable law or agreed to in writing, software
-  //    distributed under the License is distributed on an 'AS IS' BASIS,
-  //    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  //    See the License for the specific language governing permissions and
-  //    limitations under the License.
-  //    Author : François de Campredon (http://francois.de-campredon.fr/),
+// Object.observe Shim
+// ===================
 
-  // Object.observe Shim
-  // ===================
+// *See [The harmony proposal page](http://wiki.ecmascript.org/doku.php?id=harmony:observe)*
 
-  // *See [The harmony proposal page](http://wiki.ecmascript.org/doku.php?id=harmony:observe)*
-
-  (function (global) {
-    "use strict";
+(function (global) {
+    'use strict';
 
     // Utilities
     // ---------
 
     // setImmediate shim used to deliver changes records asynchronously
     // use setImmediate if available
-    var setImmediate = global.setImmediate || global.msSetImmediate, clearImmediate = global.clearImmediate || global.msClearImmediate;
+    var setImmediate = global.setImmediate || global.msSetImmediate,
+        clearImmediate = global.clearImmediate || global.msClearImmediate;
     if (!setImmediate) {
-      // fallback on setTimeout if not
-      setImmediate = function (func, args) {
-        return setTimeout(func, 0, args);
-      };
-      clearImmediate = function (id) {
-        clearTimeout(id);
-      };
+        // fallback on setTimeout if not
+        setImmediate = function (func, args) {
+            return setTimeout(func, 0, args);
+        };
+        clearImmediate = function (id) {
+            clearTimeout(id);
+        };
     }
 
 
@@ -45,54 +43,56 @@ define(["exports"], function (exports) {
     // -------
 
     var PrivateMap;
-    if (typeof WeakMap !== "undefined") {
-      //use weakmap if defined
-      PrivateMap = WeakMap;
+    if (typeof WeakMap !== 'undefined')  {
+        //use weakmap if defined
+        PrivateMap = WeakMap;
     } else {
-      //else use ses like shim of WeakMap
-      /* jshint -W016 */
-      var HIDDEN_PREFIX = "__weakmap:" + (Math.random() * 1000000000 >>> 0), counter = new Date().getTime() % 1000000000, mascot = {};
+        //else use ses like shim of WeakMap
+        /* jshint -W016 */
+        var HIDDEN_PREFIX = '__weakmap:' + (Math.random() * 1e9 >>> 0),
+            counter = new Date().getTime() % 1e9,
+            mascot = {};
 
-      PrivateMap = function () {
-        this.name = HIDDEN_PREFIX + (Math.random() * 1000000000 >>> 0) + (counter++ + "__");
-      };
+        PrivateMap = function () {
+            this.name = HIDDEN_PREFIX + (Math.random() * 1e9 >>> 0) + (counter++ + '__');
+        };
 
-      PrivateMap.prototype = {
-        has: function (key) {
-          return key && key.hasOwnProperty(this.name);
-        },
+        PrivateMap.prototype = {
+            has: function (key) {
+                return key && key.hasOwnProperty(this.name);
+            },
 
-        get: function (key) {
-          var value = key && key[this.name];
-          return value === mascot ? undefined : value;
-        },
+            get: function (key) {
+                var value = key && key[this.name];
+                return value === mascot ? undefined : value;
+            },
 
-        set: function (key, value) {
-          Object.defineProperty(key, this.name, {
-            value: typeof value === "undefined" ? mascot : value,
-            enumerable: false,
+            set: function (key, value) {
+                Object.defineProperty(key, this.name, {
+                    value : typeof value === 'undefined' ? mascot : value,
+                    enumerable: false,
+                    writable : true,
+                    configurable: true
+                });
+            },
+
+            'delete': function (key) {
+                return delete key[this.name];
+            }
+        };
+
+
+        var getOwnPropertyName = Object.getOwnPropertyNames;
+        Object.defineProperty(Object, 'getOwnPropertyNames', {
+            value: function fakeGetOwnPropertyNames(obj) {
+                return getOwnPropertyName(obj).filter(function (name) {
+                    return name.substr(0, HIDDEN_PREFIX.length) !== HIDDEN_PREFIX;
+                });
+            },
             writable: true,
+            enumerable: false,
             configurable: true
-          });
-        },
-
-        "delete": function (key) {
-          return delete key[this.name];
-        }
-      };
-
-
-      var getOwnPropertyName = Object.getOwnPropertyNames;
-      Object.defineProperty(Object, "getOwnPropertyNames", {
-        value: function fakeGetOwnPropertyNames(obj) {
-          return getOwnPropertyName(obj).filter(function (name) {
-            return name.substr(0, HIDDEN_PREFIX.length) !== HIDDEN_PREFIX;
-          });
-        },
-        writable: true,
-        enumerable: false,
-        configurable: true
-      });
+        });
     }
 
 
@@ -112,182 +112,191 @@ define(["exports"], function (exports) {
 
     // Used to schedule a call to _deliverAllChangeRecords
     function setUpChangesDelivery() {
-      clearImmediate(changeDeliveryImmediateUid);
-      changeDeliveryImmediateUid = setImmediate(_deliverAllChangeRecords);
+        clearImmediate(changeDeliveryImmediateUid);
+        changeDeliveryImmediateUid = setImmediate(_deliverAllChangeRecords);
     }
 
-    Object.defineProperty(NotifierPrototype, "notify", {
-      value: function notify(changeRecord) {
-        var notifier = this;
-        if (Object(notifier) !== notifier) {
-          throw new TypeError("this must be an Object, given " + notifier);
-        }
-        if (!notifier.__target) {
-          return;
-        }
-        if (Object(changeRecord) !== changeRecord) {
-          throw new TypeError("changeRecord must be an Object, given " + changeRecord);
-        }
+    Object.defineProperty(NotifierPrototype, 'notify', {
+        value: function notify(changeRecord) {
+            var notifier = this;
+            if (Object(notifier) !== notifier) {
+                throw new TypeError('this must be an Object, given ' + notifier);
+            }
+            if (!notifier.__target) {
+                return;
+            }
+            if (Object(changeRecord) !== changeRecord) {
+                throw new TypeError('changeRecord must be an Object, given ' + changeRecord);
+            }
 
 
-        var type = changeRecord.type;
-        if (typeof type !== "string") {
-          throw new TypeError("changeRecord.type must be a string, given " + type);
-        }
+            var type = changeRecord.type;
+            if (typeof type !== 'string') {
+                throw new TypeError('changeRecord.type must be a string, given ' + type);
+            }
 
-        var changeObservers = changeObserversMap.get(notifier);
-        if (!changeObservers || changeObservers.length === 0) {
-          return;
-        }
-        var target = notifier.__target, newRecord = Object.create(Object.prototype, {
-          object: {
-            value: target,
-            writable: false,
-            enumerable: true,
-            configurable: false
-          }
-        });
-        for (var prop in changeRecord) {
-          if (prop !== "object") {
-            var value = changeRecord[prop];
-            Object.defineProperty(newRecord, prop, {
-              value: value,
-              writable: false,
-              enumerable: true,
-              configurable: false
-            });
-          }
-        }
-        Object.preventExtensions(newRecord);
-        _enqueueChangeRecord(notifier.__target, newRecord);
-      },
-      writable: true,
-      enumerable: false,
-      configurable: true
+            var changeObservers = changeObserversMap.get(notifier);
+            if (!changeObservers || changeObservers.length === 0) {
+                return;
+            }
+            var target = notifier.__target,
+                newRecord = Object.create(Object.prototype, {
+                    'object': {
+                        value: target,
+                        writable : false,
+                        enumerable : true,
+                        configurable: false
+                    }
+                });
+            for (var prop in changeRecord) {
+                if (prop !== 'object') {
+                    var value = changeRecord[prop];
+                    Object.defineProperty(newRecord, prop, {
+                        value: value,
+                        writable : false,
+                        enumerable : true,
+                        configurable: false
+                    });
+                }
+            }
+            Object.preventExtensions(newRecord);
+            _enqueueChangeRecord(notifier.__target, newRecord);
+        },
+        writable: true,
+        enumerable: false,
+        configurable : true
     });
 
-    Object.defineProperty(NotifierPrototype, "performChange", {
-      value: function performChange(changeType, changeFn) {
-        var notifier = this;
-        if (Object(notifier) !== notifier) {
-          throw new TypeError("this must be an Object, given " + notifier);
-        }
-        if (!notifier.__target) {
-          return;
-        }
-        if (typeof changeType !== "string") {
-          throw new TypeError("changeType must be a string given " + notifier);
-        }
-        if (typeof changeFn !== "function") {
-          throw new TypeError("changeFn must be a function, given " + changeFn);
-        }
-
-        _beginChange(notifier.__target, changeType);
-        var error, changeRecord;
-        try {
-          changeRecord = changeFn.call(undefined);
-        } catch (e) {
-          error = e;
-        }
-        _endChange(notifier.__target, changeType);
-        if (typeof error !== "undefined") {
-          throw error;
-        }
-
-        var changeObservers = changeObserversMap.get(notifier);
-        if (changeObservers.length === 0) {
-          return;
-        }
-
-        var target = notifier.__target, newRecord = Object.create(Object.prototype, {
-          object: {
-            value: target,
-            writable: false,
-            enumerable: true,
-            configurable: false
-          },
-          type: {
-            value: changeType,
-            writable: false,
-            enumerable: true,
-            configurable: false
-          }
-        });
-        if (typeof changeRecord !== "undefined") {
-          for (var prop in changeRecord) {
-            if (prop !== "object" && prop !== "type") {
-              var value = changeRecord[prop];
-              Object.defineProperty(newRecord, prop, {
-                value: value,
-                writable: false,
-                enumerable: true,
-                configurable: false
-              });
+    Object.defineProperty(NotifierPrototype, 'performChange', {
+        value: function performChange(changeType, changeFn) {
+            var notifier = this;
+            if (Object(notifier) !== notifier) {
+                throw new TypeError('this must be an Object, given ' + notifier);
             }
-          }
-        }
+            if (!notifier.__target) {
+                return;
+            }
+            if (typeof changeType !== 'string') {
+                throw new TypeError('changeType must be a string given ' + notifier);
+            }
+            if (typeof changeFn !== 'function') {
+                throw new TypeError('changeFn must be a function, given ' + changeFn);
+            }
 
-        Object.preventExtensions(newRecord);
-        _enqueueChangeRecord(notifier.__target, newRecord);
-      },
-      writable: true,
-      enumerable: false,
-      configurable: true
+            _beginChange(notifier.__target, changeType);
+            var error, changeRecord;
+            try {
+                changeRecord = changeFn.call(undefined);
+            } catch (e) {
+                error = e;
+            }
+            _endChange(notifier.__target, changeType);
+            if (typeof error !== 'undefined') {
+                throw error;
+            }
+
+            var changeObservers = changeObserversMap.get(notifier);
+            if (changeObservers.length === 0) {
+                return;
+            }
+
+            var target = notifier.__target,
+                newRecord = Object.create(Object.prototype, {
+                    'object': {
+                        value: target,
+                        writable : false,
+                        enumerable : true,
+                        configurable: false
+                    },
+                    'type': {
+                        value: changeType,
+                        writable : false,
+                        enumerable : true,
+                        configurable: false
+                    }
+                });
+            if (typeof changeRecord !== 'undefined') {
+                for (var prop in changeRecord) {
+                    if (prop !== 'object' && prop !== 'type') {
+                        var value = changeRecord[prop];
+                        Object.defineProperty(newRecord, prop, {
+                            value: value,
+                            writable : false,
+                            enumerable : true,
+                            configurable: false
+                        });
+                    }
+                }
+            }
+
+            Object.preventExtensions(newRecord);
+            _enqueueChangeRecord(notifier.__target, newRecord);
+
+        },
+        writable: true,
+        enumerable: false,
+        configurable : true
     });
 
     // Implementation of the internal algorithm 'BeginChange'
     // described in the proposal.
     // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_internals#beginchange)
     function _beginChange(object, changeType) {
-      var notifier = Object.getNotifier(object), activeChanges = activeChangesMap.get(notifier), changeCount = activeChangesMap.get(notifier)[changeType];
-      activeChanges[changeType] = typeof changeCount === "undefined" ? 1 : changeCount + 1;
+        var notifier = Object.getNotifier(object),
+            activeChanges = activeChangesMap.get(notifier),
+            changeCount = activeChangesMap.get(notifier)[changeType];
+        activeChanges[changeType] = typeof changeCount === 'undefined' ? 1 : changeCount + 1;
     }
 
     // Implementation of the internal algorithm 'EndChange'
     // described in the proposal.
     // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_internals#endchange)
     function _endChange(object, changeType) {
-      var notifier = Object.getNotifier(object), activeChanges = activeChangesMap.get(notifier), changeCount = activeChangesMap.get(notifier)[changeType];
-      activeChanges[changeType] = changeCount > 0 ? changeCount - 1 : 0;
+        var notifier = Object.getNotifier(object),
+            activeChanges = activeChangesMap.get(notifier),
+            changeCount = activeChangesMap.get(notifier)[changeType];
+        activeChanges[changeType] = changeCount > 0 ? changeCount - 1 : 0;
     }
 
     // Implementation of the internal algorithm 'ShouldDeliverToObserver'
     // described in the proposal.
     // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_internals#shoulddelivertoobserver)
     function _shouldDeliverToObserver(activeChanges, acceptList, changeType) {
-      var doesAccept = false;
-      if (acceptList) {
-        for (var i = 0, l = acceptList.length; i < l; i++) {
-          var accept = acceptList[i];
-          if (activeChanges[accept] > 0) {
-            return false;
-          }
-          if (accept === changeType) {
-            doesAccept = true;
-          }
+        var doesAccept = false;
+        if (acceptList) {
+            for (var i = 0, l = acceptList.length; i < l; i++) {
+                var accept = acceptList[i];
+                if (activeChanges[accept] > 0) {
+                    return false;
+                }
+                if (accept === changeType) {
+                    doesAccept = true;
+                }
+            }
         }
-      }
-      return doesAccept;
+        return doesAccept;
     }
 
 
     // Map used to store corresponding notifier to an object
-    var notifierMap = new PrivateMap(), changeObserversMap = new PrivateMap(), activeChangesMap = new PrivateMap();
+    var notifierMap = new PrivateMap(),
+        changeObserversMap = new PrivateMap(),
+        activeChangesMap = new PrivateMap();
 
     // Implementation of the internal algorithm 'GetNotifier'
     // described in the proposal.
     // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_internals#getnotifier)
     function _getNotifier(target) {
-      if (!notifierMap.has(target)) {
-        var notifier = Object.create(NotifierPrototype);
-        // we does not really need to hide this, since anyway the host object is accessible from outside of the
-        // implementation. we just make it unwritable
-        Object.defineProperty(notifier, "__target", { value: target });
-        changeObserversMap.set(notifier, []);
-        activeChangesMap.set(notifier, {});
-        notifierMap.set(target, notifier);
-      }
-      return notifierMap.get(target);
+        if (!notifierMap.has(target)) {
+            var notifier = Object.create(NotifierPrototype);
+            // we does not really need to hide this, since anyway the host object is accessible from outside of the
+            // implementation. we just make it unwritable
+            Object.defineProperty(notifier, '__target', { value : target });
+            changeObserversMap.set(notifier, []);
+            activeChangesMap.set(notifier, {});
+            notifierMap.set(target, notifier);
+        }
+        return notifierMap.get(target);
     }
 
 
@@ -300,21 +309,26 @@ define(["exports"], function (exports) {
     // described in the proposal.
     // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_internals#enqueuechangerecord)
     function _enqueueChangeRecord(object, changeRecord) {
-      var notifier = Object.getNotifier(object), changeType = changeRecord.type, activeChanges = activeChangesMap.get(notifier), changeObservers = changeObserversMap.get(notifier);
+        var notifier = Object.getNotifier(object),
+            changeType = changeRecord.type,
+            activeChanges = activeChangesMap.get(notifier),
+            changeObservers = changeObserversMap.get(notifier);
 
-      for (var i = 0, l = changeObservers.length; i < l; i++) {
-        var observerRecord = changeObservers[i], acceptList = observerRecord.accept;
-        if (_shouldDeliverToObserver(activeChanges, acceptList, changeType)) {
-          var observer = observerRecord.callback, pendingChangeRecords = [];
-          if (!pendingChangesMap.has(observer)) {
-            pendingChangesMap.set(observer, pendingChangeRecords);
-          } else {
-            pendingChangeRecords = pendingChangesMap.get(observer);
-          }
-          pendingChangeRecords.push(changeRecord);
+        for (var i = 0, l = changeObservers.length; i < l; i++) {
+            var observerRecord = changeObservers[i],
+                acceptList = observerRecord.accept;
+            if (_shouldDeliverToObserver(activeChanges, acceptList, changeType)) {
+                var observer = observerRecord.callback,
+                    pendingChangeRecords = [];
+                if (!pendingChangesMap.has(observer))  {
+                    pendingChangesMap.set(observer, pendingChangeRecords);
+                } else {
+                    pendingChangeRecords = pendingChangesMap.get(observer);
+                }
+                pendingChangeRecords.push(changeRecord);
+            }
         }
-      }
-      setUpChangesDelivery();
+        setUpChangesDelivery();
     }
 
     // map used to store a count of associated notifier to a function
@@ -325,208 +339,212 @@ define(["exports"], function (exports) {
     // In the proposal the ObserverCallBack has a weak reference over observers,
     // Without this possibility we need to clean this list to avoid memory leak
     function _cleanObserver(observer) {
-      if (!attachedNotifierCountMap.get(observer) && !pendingChangesMap.has(observer)) {
-        attachedNotifierCountMap["delete"](observer);
-        var index = observerCallbacks.indexOf(observer);
-        if (index !== -1) {
-          observerCallbacks.splice(index, 1);
+        if (!attachedNotifierCountMap.get(observer) && !pendingChangesMap.has(observer)) {
+            attachedNotifierCountMap.delete(observer);
+            var index = observerCallbacks.indexOf(observer);
+            if (index !== -1) {
+                observerCallbacks.splice(index, 1);
+            }
         }
-      }
     }
 
     // Implementation of the internal algorithm 'DeliverChangeRecords'
     // described in the proposal.
     // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_internals#deliverchangerecords)
     function _deliverChangeRecords(observer) {
-      var pendingChangeRecords = pendingChangesMap.get(observer);
-      pendingChangesMap["delete"](observer);
-      if (!pendingChangeRecords || pendingChangeRecords.length === 0) {
-        return false;
-      }
-      try {
-        observer.call(undefined, pendingChangeRecords);
-      } catch (e) {}
+        var pendingChangeRecords = pendingChangesMap.get(observer);
+        pendingChangesMap.delete(observer);
+        if (!pendingChangeRecords || pendingChangeRecords.length === 0) {
+            return false;
+        }
+        try {
+            observer.call(undefined, pendingChangeRecords);
+        }
+        catch (e) { }
 
-      _cleanObserver(observer);
-      return true;
+        _cleanObserver(observer);
+        return true;
     }
 
     // Implementation of the internal algorithm 'DeliverAllChangeRecords'
     // described in the proposal.
     // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_internals#deliverallchangerecords)
     function _deliverAllChangeRecords() {
-      var observers = observerCallbacks.slice();
-      var anyWorkDone = false;
-      for (var i = 0, l = observers.length; i < l; i++) {
-        var observer = observers[i];
-        if (_deliverChangeRecords(observer)) {
-          anyWorkDone = true;
+        var observers = observerCallbacks.slice();
+        var anyWorkDone = false;
+        for (var i = 0, l = observers.length; i < l; i++) {
+            var observer = observers[i];
+            if (_deliverChangeRecords(observer)) {
+                anyWorkDone = true;
+            }
         }
-      }
-      return anyWorkDone;
+        return anyWorkDone;
     }
 
 
     Object.defineProperties(Object, {
-      // Implementation of the public api 'Object.observe'
-      // described in the proposal.
-      // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_public_api#object.observe)
-      observe: {
-        value: function observe(target, callback, accept) {
-          if (Object(target) !== target) {
-            throw new TypeError("target must be an Object, given " + target);
-          }
-          if (typeof callback !== "function") {
-            throw new TypeError("observer must be a function, given " + callback);
-          }
-          if (Object.isFrozen(callback)) {
-            throw new TypeError("observer cannot be frozen");
-          }
+        // Implementation of the public api 'Object.observe'
+        // described in the proposal.
+        // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_public_api#object.observe)
+        'observe': {
+            value: function observe(target, callback, accept) {
+                if (Object(target) !== target) {
+                    throw new TypeError('target must be an Object, given ' + target);
+                }
+                if (typeof callback !== 'function') {
+                    throw new TypeError('observer must be a function, given ' + callback);
+                }
+                if (Object.isFrozen(callback)) {
+                    throw new TypeError('observer cannot be frozen');
+                }
 
-          var acceptList;
-          if (typeof accept === "undefined") {
-            acceptList = ["add", "update", "delete", "reconfigure", "setPrototype", "preventExtensions"];
-          } else {
-            if (Object(accept) !== accept) {
-              throw new TypeError("accept must be an object, given " + accept);
-            }
-            var len = accept.length;
-            if (typeof len !== "number" || len >>> 0 !== len || len < 1) {
-              throw new TypeError("the 'length' property of accept must be a positive integer, given " + len);
-            }
+                var acceptList;
+                if (typeof accept === 'undefined') {
+                    acceptList = ['add', 'update', 'delete', 'reconfigure', 'setPrototype', 'preventExtensions'];
+                } else {
+                    if (Object(accept) !== accept) {
+                        throw new TypeError('accept must be an object, given ' + accept);
+                    }
+                    var len = accept.length;
+                    if (typeof len !== 'number' || len >>> 0 !== len || len < 1) {
+                        throw new TypeError('the \'length\' property of accept must be a positive integer, given ' + len);
+                    }
 
-            var nextIndex = 0;
-            acceptList = [];
-            while (nextIndex < len) {
-              var next = accept[nextIndex];
-              if (typeof next !== "string") {
-                throw new TypeError("accept must contains only string, given" + next);
-              }
-              acceptList.push(next);
-              nextIndex++;
-            }
-          }
+                    var nextIndex = 0;
+                    acceptList = [];
+                    while (nextIndex < len) {
+                        var next = accept[nextIndex];
+                        if (typeof next !== 'string') {
+                            throw new TypeError('accept must contains only string, given' + next);
+                        }
+                        acceptList.push(next);
+                        nextIndex++;
+                    }
+                }
 
 
-          var notifier = _getNotifier(target), changeObservers = changeObserversMap.get(notifier);
+                var notifier = _getNotifier(target),
+                    changeObservers = changeObserversMap.get(notifier);
 
-          for (var i = 0, l = changeObservers.length; i < l; i++) {
-            if (changeObservers[i].callback === callback) {
-              changeObservers[i].accept = acceptList;
-              return target;
-            }
-          }
+                for (var i = 0, l = changeObservers.length; i < l; i++) {
+                    if (changeObservers[i].callback === callback) {
+                        changeObservers[i].accept = acceptList;
+                        return target;
+                    }
+                }
 
-          changeObservers.push({
-            callback: callback,
-            accept: acceptList
-          });
+                changeObservers.push({
+                    callback: callback,
+                    accept: acceptList
+                });
 
-          if (observerCallbacks.indexOf(callback) === -1) {
-            observerCallbacks.push(callback);
-          }
-          if (!attachedNotifierCountMap.has(callback)) {
-            attachedNotifierCountMap.set(callback, 1);
-          } else {
-            attachedNotifierCountMap.set(callback, attachedNotifierCountMap.get(callback) + 1);
-          }
-          return target;
+                if (observerCallbacks.indexOf(callback) === -1)  {
+                    observerCallbacks.push(callback);
+                }
+                if (!attachedNotifierCountMap.has(callback)) {
+                    attachedNotifierCountMap.set(callback, 1);
+                } else {
+                    attachedNotifierCountMap.set(callback, attachedNotifierCountMap.get(callback) + 1);
+                }
+                return target;
+            },
+            writable: true,
+            configurable: true
         },
-        writable: true,
-        configurable: true
-      },
 
-      // Implementation of the public api 'Object.unobseve'
-      // described in the proposal.
-      // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_public_api#object.unobseve)
-      unobserve: {
-        value: function unobserve(target, callback) {
-          if (Object(target) !== target) {
-            throw new TypeError("target must be an Object, given " + target);
-          }
-          if (typeof callback !== "function") {
-            throw new TypeError("observer must be a function, given " + callback);
-          }
-          var notifier = _getNotifier(target), changeObservers = changeObserversMap.get(notifier);
-          for (var i = 0, l = changeObservers.length; i < l; i++) {
-            if (changeObservers[i].callback === callback) {
-              changeObservers.splice(i, 1);
-              attachedNotifierCountMap.set(callback, attachedNotifierCountMap.get(callback) - 1);
-              _cleanObserver(callback);
-              break;
-            }
-          }
-          return target;
+        // Implementation of the public api 'Object.unobseve'
+        // described in the proposal.
+        // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_public_api#object.unobseve)
+        'unobserve': {
+            value: function unobserve(target, callback) {
+                if (Object(target) !== target) {
+                    throw new TypeError('target must be an Object, given ' + target);
+                }
+                if (typeof callback !== 'function') {
+                    throw new TypeError('observer must be a function, given ' + callback);
+                }
+                var notifier = _getNotifier(target),
+                    changeObservers = changeObserversMap.get(notifier);
+                for (var i = 0, l = changeObservers.length; i < l; i++) {
+                    if (changeObservers[i].callback === callback) {
+                        changeObservers.splice(i, 1);
+                        attachedNotifierCountMap.set(callback, attachedNotifierCountMap.get(callback) - 1);
+                        _cleanObserver(callback);
+                        break;
+                    }
+                }
+                return target;
+            },
+            writable: true,
+            configurable: true
         },
-        writable: true,
-        configurable: true
-      },
 
-      // Implementation of the public api 'Object.deliverChangeRecords'
-      // described in the proposal.
-      // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_public_api#object.deliverchangerecords)
-      deliverChangeRecords: {
-        value: function deliverChangeRecords(observer) {
-          if (typeof observer !== "function") {
-            throw new TypeError("callback must be a function, given " + observer);
-          }
-          while (_deliverChangeRecords(observer)) {}
+        // Implementation of the public api 'Object.deliverChangeRecords'
+        // described in the proposal.
+        // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_public_api#object.deliverchangerecords)
+        'deliverChangeRecords': {
+            value: function deliverChangeRecords(observer) {
+                if (typeof observer !== 'function') {
+                    throw new TypeError('callback must be a function, given ' + observer);
+                }
+                while (_deliverChangeRecords(observer)) {}
+            },
+            writable: true,
+            configurable: true
         },
-        writable: true,
-        configurable: true
-      },
 
-      // Implementation of the public api 'Object.getNotifier'
-      // described in the proposal.
-      // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_public_api#object.getnotifier)
-      getNotifier: {
-        value: function getNotifier(target) {
-          if (Object(target) !== target) {
-            throw new TypeError("target must be an Object, given " + target);
-          }
-          if (Object.isFrozen(target)) {
-            return null;
-          }
-          return _getNotifier(target);
-        },
-        writable: true,
-        configurable: true
-      }
+        // Implementation of the public api 'Object.getNotifier'
+        // described in the proposal.
+        // [Corresponding Section in ECMAScript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:observe_public_api#object.getnotifier)
+        'getNotifier': {
+            value: function getNotifier(target) {
+                if (Object(target) !== target) {
+                    throw new TypeError('target must be an Object, given ' + target);
+                }
+                if (Object.isFrozen(target)) {
+                    return null;
+                }
+                return _getNotifier(target);
+            },
+            writable: true,
+            configurable: true
+        }
 
     });
-  })(typeof global !== "undefined" ? global : this);
+
+})(typeof global !== 'undefined' ? global : this);
 
 
 
-  //    Copyright 2012 Kap IT (http://www.kapit.fr/)
-  //
-  //    Licensed under the Apache License, Version 2.0 (the 'License');
-  //    you may not use this file except in compliance with the License.
-  //    You may obtain a copy of the License at
-  //
-  //        http://www.apache.org/licenses/LICENSE-2.0
-  //
-  //    Unless required by applicable law or agreed to in writing, software
-  //    distributed under the License is distributed on an 'AS IS' BASIS,
-  //    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  //    See the License for the specific language governing permissions and
-  //    limitations under the License.
-  //    Author : François de Campredon (http://francois.de-campredon.fr/),
+//    Copyright 2012 Kap IT (http://www.kapit.fr/)
+//
+//    Licensed under the Apache License, Version 2.0 (the 'License');
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an 'AS IS' BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//    Author : François de Campredon (http://francois.de-campredon.fr/),
 
-  // ObjectUtils
-  // ===========
+// ObjectUtils
+// ===========
 
-  (function (global) {
-    "use strict";
+(function (global) {
+    'use strict';
 
     /**
      * @namespace
      */
     var ObserveUtils;
-    if (typeof exports !== "undefined") {
-      ObserveUtils = exports;
+    if (typeof exports !== 'undefined') {
+        ObserveUtils = exports;
     } else {
-      ObserveUtils = global.ObserveUtils = {};
+        ObserveUtils = global.ObserveUtils = {};
     }
 
     // Utilities
@@ -534,14 +552,15 @@ define(["exports"], function (exports) {
 
 
     // borrowing some array methods
-    var arrSlice = Function.call.bind(Array.prototype.slice), arrMap = Function.call.bind(Array.prototype.map);
+    var arrSlice = Function.call.bind(Array.prototype.slice),
+        arrMap = Function.call.bind(Array.prototype.map);
 
     // return true if the given property descriptor contains accessor
     function isAccessorDescriptor(desc) {
-      if (typeof desc === "undefined") {
-        return false;
-      }
-      return ("get" in desc || "set" in desc);
+        if (typeof desc === 'undefined') {
+            return false;
+        }
+        return ('get' in desc || 'set' in desc);
     }
 
 
@@ -549,12 +568,13 @@ define(["exports"], function (exports) {
     // getPropertyDescriptor shim
     // copied from [es6-shim](https://github.com/paulmillr/es6-shim)
     function getPropertyDescriptor(target, name) {
-      var pd = Object.getOwnPropertyDescriptor(target, name), proto = Object.getPrototypeOf(target);
-      while (typeof pd === "undefined" && proto !== null) {
-        pd = Object.getOwnPropertyDescriptor(proto, name);
-        proto = Object.getPrototypeOf(proto);
-      }
-      return pd;
+        var pd = Object.getOwnPropertyDescriptor(target, name),
+            proto = Object.getPrototypeOf(target);
+        while (typeof pd === 'undefined' && proto !== null) {
+            pd = Object.getOwnPropertyDescriptor(proto, name);
+            proto = Object.getPrototypeOf(proto);
+        }
+        return pd;
     }
 
 
@@ -562,27 +582,27 @@ define(["exports"], function (exports) {
     // egal shim
     // copied from [the ecmascript wiki](http://wiki.ecmascript.org/doku.php?id=harmony:egal)
     function sameValue(x, y) {
-      if (x === y) {
-        // 0 === -0, but they are not identical
-        return x !== 0 || 1 / x === 1 / y;
-      }
+        if (x === y) {
+            // 0 === -0, but they are not identical
+            return x !== 0 || 1 / x === 1 / y;
+        }
 
-      // NaN !== NaN, but they are identical.
-      // NaNs are the only non-reflexive value, i.e., if x !== x,
-      // then x is a NaN.
-      // isNaN is broken: it converts its argument to number, so
-      // isNaN('foo') => true
-      return x !== x && y !== y;
+        // NaN !== NaN, but they are identical.
+        // NaNs are the only non-reflexive value, i.e., if x !== x,
+        // then x is a NaN.
+        // isNaN is broken: it converts its argument to number, so
+        // isNaN('foo') => true
+        return x !== x && y !== y;
     }
 
     // cast a value as number, and test if the obtained result
     // is a positive finite integer, throw an error otherwise
     function isPositiveFiniteInteger(value, errorMessage) {
-      value = Number(value);
-      if (isNaN(value) || !isFinite(value) || value < 0 || value % 1 !== 0) {
-        throw new RangeError(errorMessage.replace("$", value));
-      }
-      return value;
+        value = Number(value);
+        if (isNaN(value) || !isFinite(value) || value < 0 || value % 1 !== 0) {
+            throw new RangeError(errorMessage.replace('$', value));
+        }
+        return value;
     }
 
     // defineObservableProperties Implementation
@@ -593,40 +613,41 @@ define(["exports"], function (exports) {
 
     // Define a property on an object that will call the Notifier.notify method when updated
     function defineObservableProperty(target, property, originalValue) {
-      //we store the value in an non-enumerable property with generated unique name
-      var internalPropName = "_" + (uidCounter++) + property;
 
-      if (target.hasOwnProperty(property)) {
-        Object.defineProperty(target, internalPropName, {
-          value: originalValue,
-          writable: true,
-          enumerable: false,
-          configurable: true
-        });
-      }
+        //we store the value in an non-enumerable property with generated unique name
+        var internalPropName = '_' + (uidCounter++) + property;
 
-      //then we create accessor method for our 'hidden' property,
-      // that dispatch changesRecords when the value is updated
-      Object.defineProperty(target, property, {
-        get: function () {
-          return this[internalPropName];
-        },
-        set: function (value) {
-          if (!sameValue(value, this[internalPropName])) {
-            var oldValue = this[internalPropName];
-            Object.defineProperty(this, internalPropName, {
-              value: value,
-              writable: true,
-              enumerable: false,
-              configurable: true
+        if (target.hasOwnProperty(property)) {
+            Object.defineProperty(target, internalPropName, {
+                value: originalValue,
+                writable: true,
+                enumerable: false,
+                configurable: true
             });
-            var notifier = Object.getNotifier(this);
-            notifier.notify({ type: "update", name: property, oldValue: oldValue });
-          }
-        },
-        enumerable: true,
-        configurable: true
-      });
+        }
+
+        //then we create accessor method for our 'hidden' property,
+        // that dispatch changesRecords when the value is updated
+        Object.defineProperty(target, property, {
+            get: function () {
+                return this[internalPropName];
+            },
+            set: function (value) {
+                if (!sameValue(value, this[internalPropName])) {
+                    var oldValue = this[internalPropName];
+                    Object.defineProperty(this, internalPropName, {
+                        value: value,
+                        writable: true,
+                        enumerable: false,
+                        configurable: true
+                    });
+                    var notifier = Object.getNotifier(this);
+                    notifier.notify({ type: 'update', name: property, oldValue: oldValue });
+                }
+            },
+            enumerable: true,
+            configurable: true
+        });
     }
 
 
@@ -640,19 +661,20 @@ define(["exports"], function (exports) {
      * @returns {Object}
      */
     ObserveUtils.defineObservableProperties = function defineObservableProperties(target, properties) {
-      if (Object(target) !== target) {
-        throw new TypeError("target must be an Object, given " + target);
-      }
-      properties = arrSlice(arguments, 1);
-      while (properties.length > 0) {
-        var property = properties.shift(), descriptor = getPropertyDescriptor(target, property);
-
-        if (!descriptor || !isAccessorDescriptor(descriptor)) {
-          var originalValue = descriptor && descriptor.value;
-          defineObservableProperty(target, property, originalValue);
+        if (Object(target) !== target) {
+            throw new TypeError('target must be an Object, given ' + target);
         }
-      }
-      return target;
+        properties = arrSlice(arguments, 1);
+        while (properties.length > 0) {
+            var property = properties.shift(),
+                descriptor = getPropertyDescriptor(target, property);
+
+            if (!descriptor || !isAccessorDescriptor(descriptor)) {
+                var originalValue = descriptor && descriptor.value;
+                defineObservableProperty(target, property, originalValue);
+            }
+        }
+        return target;
     };
 
 
@@ -668,28 +690,31 @@ define(["exports"], function (exports) {
      * @function
      */
     function List(length) {
-      if (arguments.length === 0) {
-        length = 0;
-      }
+        if (arguments.length === 0) {
+            length = 0;
+        }
 
-      // in this case we create a list with a given length
-      if (arguments.length <= 1 && typeof length === "number") {
-        if (this instanceof List) {
-          this.length = length;
-        } else {
-          return new List(length);
+        // in this case we create a list with a given length
+        if (arguments.length <= 1 && typeof length === 'number') {
+            if (this instanceof List) {
+                this.length = length;
+            }
+            else {
+                return new List(length);
+            }
         }
-      } else {
-        //here we create a list with initial values
-        if (!(this instanceof List)) {
-          return List.fromArray(arrSlice(arguments));
-        } else {
-          for (var i = 0, l = arguments.length; i < l; i++) {
-            this[i] = arguments[i];
-          }
-          this.length = arguments.length;
+        else {
+            //here we create a list with initial values
+            if (!(this instanceof List)) {
+                return List.fromArray(arrSlice(arguments));
+            }
+            else {
+                for (var i = 0, l = arguments.length ; i < l ; i++) {
+                    this[i] = arguments[i];
+                }
+                this.length = arguments.length;
+            }
         }
-      }
     }
 
     /**
@@ -698,7 +723,7 @@ define(["exports"], function (exports) {
      * @param {function} observer
      */
     List.observe = function observe(list, observer) {
-      Object.observe(list, observer, ["add", "update", "delete", "splice"]);
+        Object.observe(list, observer, ['add', 'update', 'delete', 'splice']);
     };
 
 
@@ -708,7 +733,7 @@ define(["exports"], function (exports) {
      * @param {function} observer
      */
     List.unobserve = function unobserve(list, observer) {
-      Object.unobserve(list, observer);
+        Object.unobserve(list, observer);
     };
 
     /**
@@ -717,77 +742,81 @@ define(["exports"], function (exports) {
      * @returns {List}
      */
     List.fromArray = function fromArray(array) {
-      if (!Array.isArray(array)) {
-        throw new Error();
-      }
+        if (!Array.isArray(array)) {
+            throw new Error();
+        }
 
-      var list = new List();
-      for (var i = 0, l = array.length; i < l; i++) {
-        list[i] = array[i];
-      }
-      list.length = array.length;
-      return list;
+        var list = new List();
+        for (var i = 0, l = array.length ; i < l ; i++) {
+            list[i] = array[i];
+        }
+        list.length = array.length;
+        return list;
     };
 
     Object.defineProperties(List.prototype, {
-      /**
-       * hidden value holder for the length property
-       * @private
-       */
-      _length: {
-        value: 0,
-        enumerable: false,
-        configurable: true,
-        writable: true
-      },
-      /**
-       * the length of the list
-       * @property {number} length
-       */
-      length: {
-        get: function () {
-          return this._length;
+        /**
+         * hidden value holder for the length property
+         * @private
+         */
+        '_length' : {
+            value : 0,
+            enumerable: false,
+            configurable: true,
+            writable: true
         },
-        set: function (value) {
-          value = isPositiveFiniteInteger(value, "Invalid  list length : $");
-          var notifier = Object.getNotifier(this), oldValue = this._length, removed = [], self = this;
-          if (value !== oldValue) {
-            notifier.performChange("splice", function () {
-              Object.defineProperty(self, "_length", {
-                value: value,
-                enumerable: false,
-                configurable: true,
-                writable: true
-              });
+        /**
+         * the length of the list
+         * @property {number} length
+         */
+        'length' : {
+            get : function () {
+                return this._length;
+            },
+            set : function (value) {
+                value = isPositiveFiniteInteger(value, 'Invalid  list length : $');
+                var notifier = Object.getNotifier(this),
+                    oldValue = this._length,
+                    removed = [],
+                    self = this;
+                if (value !== oldValue) {
+                    notifier.performChange('splice', function () {
+                        Object.defineProperty(self, '_length', {
+                            value : value,
+                            enumerable: false,
+                            configurable: true,
+                            writable: true
+                        });
 
-              var returnValue;
-              if (oldValue > value) {
-                //delete values if the length have been decreased
-                for (var i = value; i < oldValue; i++) {
-                  removed.push(self[i]);
-                  self["delete"](i);
+                        var returnValue;
+                        if (oldValue > value) {
+                            //delete values if the length have been decreased
+                            for (var i = value; i < oldValue; i++) {
+                                removed.push(self[i]);
+                                self.delete(i);
+                            }
+                            returnValue = {
+                                index : value,
+                                removed : removed,
+                                addedCount: 0
+                            };
+                        } else {
+                            returnValue = {
+                                index : oldValue,
+                                removed : removed,
+                                addedCount: value - oldValue
+                            };
+                        }
+                        notifier.notify({ type: 'update', name: 'length', oldValue: oldValue });
+
+                        return returnValue;
+                    });
                 }
-                returnValue = {
-                  index: value,
-                  removed: removed,
-                  addedCount: 0
-                };
-              } else {
-                returnValue = {
-                  index: oldValue,
-                  removed: removed,
-                  addedCount: value - oldValue
-                };
-              }
-              notifier.notify({ type: "update", name: "length", oldValue: oldValue });
 
-              return returnValue;
-            });
-          }
-        },
-        enumerable: true,
-        configurable: true
-      }
+            },
+            enumerable: true,
+            configurable : true
+        }
     });
 
     /**
@@ -795,7 +824,7 @@ define(["exports"], function (exports) {
      * @returns {Array}
      */
     List.prototype.toArray = function toArray() {
-      return arrSlice(this);
+        return arrSlice(this);
     };
 
     /**
@@ -803,7 +832,7 @@ define(["exports"], function (exports) {
      * @returns {string}
      */
     List.prototype.toString = function toString() {
-      return this.toArray().toString();
+        return this.toArray().toString();
     };
 
 
@@ -812,7 +841,7 @@ define(["exports"], function (exports) {
      * @returns {string}
      */
     List.prototype.toJSON = function toJSON() {
-      return this.toArray();
+        return this.toArray();
     };
 
     /**
@@ -822,33 +851,36 @@ define(["exports"], function (exports) {
      * @return {*}
      */
     List.prototype.set = function set(index, value) {
-      index = isPositiveFiniteInteger(index, "Invalid index : $");
+        index = isPositiveFiniteInteger(index, 'Invalid index : $');
 
-      var notifier = Object.getNotifier(this), len = this.length, self = this;
-      if (index >= len) {
-        notifier.performChange("splice", function () {
-          self[index] = value;
-          notifier.notify({ type: "add", name: index });
-          Object.defineProperty(self, "_length", {
-            value: index + 1,
-            enumerable: false,
-            configurable: true,
-            writable: true
-          });
-          notifier.notify({ type: "update", name: "length", oldValue: len });
+        var notifier = Object.getNotifier(this),
+            len = this.length,
+            self = this;
+        if (index >= len) {
+            notifier.performChange('splice', function () {
+                self[index] = value;
+                notifier.notify({ type: 'add', name: index});
+                Object.defineProperty(self, '_length', {
+                    value : index + 1,
+                    enumerable: false,
+                    configurable: true,
+                    writable: true
+                });
+                notifier.notify({ type: 'update', name: 'length', oldValue: len });
 
-          return {
-            index: len,
-            removed: [],
-            addedCount: self.length - len
-          };
-        });
-      } else if (!sameValue(value, this[index])) {
-        var oldValue = this[index];
-        this[index] = value;
-        notifier.notify({ type: "update", name: index, oldValue: oldValue });
-      }
-      return value;
+                return {
+                    index : len,
+                    removed : [],
+                    addedCount: self.length - len
+                };
+            });
+        }
+        else if (!sameValue(value, this[index])) {
+            var oldValue = this[index];
+            this[index] = value;
+            notifier.notify({ type: 'update', name: index, oldValue: oldValue });
+        }
+        return value;
     };
 
     /**
@@ -856,17 +888,17 @@ define(["exports"], function (exports) {
      * @param {number} index
      * @return {boolean}
      */
-    List.prototype["delete"] = function del(index) {
-      index = isPositiveFiniteInteger(index, "Invalid index : $");
-      if (this.hasOwnProperty(index)) {
-        var oldValue = this[index];
-        if (delete this[index]) {
-          var notifier = Object.getNotifier(this);
-          notifier.notify({ type: "delete", name: index, oldValue: oldValue });
-          return true;
+    List.prototype.delete = function del(index) {
+        index = isPositiveFiniteInteger(index, 'Invalid index : $');
+        if (this.hasOwnProperty(index)) {
+            var oldValue = this[index];
+            if (delete this[index]) {
+                var notifier = Object.getNotifier(this);
+                notifier.notify({ type: 'delete', name: index, oldValue: oldValue });
+                return true;
+            }
         }
-      }
-      return false;
+        return false;
     };
 
     /**
@@ -876,10 +908,10 @@ define(["exports"], function (exports) {
      * @return {List}
      */
     List.prototype.concat = function concat(args) {
-      args = arrMap(arguments, function (item) {
-        return (item instanceof List) ? item.toArray() : item;
-      });
-      return List.fromArray(Array.prototype.concat.apply(this.toArray(), args));
+        args = arrMap(arguments, function (item) {
+            return (item instanceof List) ?  item.toArray() : item;
+        });
+        return List.fromArray(Array.prototype.concat.apply(this.toArray(), args));
     };
 
     /**
@@ -888,7 +920,7 @@ define(["exports"], function (exports) {
      * @return {string}
      */
     List.prototype.join = function join(separator) {
-      return this.toArray().join(separator);
+        return this.toArray().join(separator);
     };
 
 
@@ -897,35 +929,38 @@ define(["exports"], function (exports) {
      * @return {*}
      */
     List.prototype.pop = function pop() {
-      if (Object(this) !== this) {
-        throw new TypeError("this mus be an object given : " + this);
-      }
-      var len = isPositiveFiniteInteger(this.length, "this must have a finite integer property 'length', given : $");
-      if (len === 0) {
-        return void (0);
-      } else {
-        var newLen = len - 1, element = this[newLen], notifier = Object.getNotifier(this), self = this;
-        notifier.performChange("splice", function () {
-          delete self[newLen];
-          notifier.notify({ type: "delete", name: newLen, oldValue: element });
-          Object.defineProperty(self, "_length", {
-            value: newLen,
-            enumerable: false,
-            configurable: true,
-            writable: true
-          });
-          notifier.notify({ type: "update", name: "length", oldValue: len });
+        if (Object(this) !== this) {
+            throw new TypeError('this mus be an object given : ' + this);
+        }
+        var len = isPositiveFiniteInteger(this.length, 'this must have a finite integer property \'length\', given : $');
+        if (len === 0) {
+            return void(0);
+        } else {
+            var newLen = len - 1,
+                element = this[newLen],
+                notifier =  Object.getNotifier(this),
+                self = this;
+            notifier.performChange('splice', function () {
+                delete self[newLen];
+                notifier.notify({ type: 'delete', name: newLen, oldValue: element });
+                Object.defineProperty(self, '_length', {
+                    value : newLen,
+                    enumerable: false,
+                    configurable: true,
+                    writable: true
+                });
+                notifier.notify({ type: 'update', name: 'length', oldValue: len });
 
-          return {
-            index: newLen,
-            removed: [element],
-            addedCount: 0
-          };
-        });
+                return {
+                    index : newLen,
+                    removed : [element],
+                    addedCount: 0
+                };
+            });
 
 
-        return element;
-      }
+            return element;
+        }
     };
 
     /**
@@ -934,35 +969,40 @@ define(["exports"], function (exports) {
      * @return {number}
      */
     List.prototype.push = function push() {
-      if (arguments.length > 0) {
-        var argumentsLength = arguments.length, elements = arguments, len = this.length, notifier = Object.getNotifier(this), self = this, i, index;
-        notifier.performChange("splice", function () {
-          for (i = 0; i < argumentsLength; i++) {
-            index = len + i;
-            // avoid the usage of the set function and manually
-            // set the value and notify the changes to avoid the notification of
-            // multiple length modification
-            self[index] = elements[i];
-            notifier.notify({
-              type: "add",
-              name: index
+        if (arguments.length > 0) {
+            var argumentsLength = arguments.length,
+                elements = arguments,
+                len = this.length,
+                notifier = Object.getNotifier(this),
+                self = this,
+                i, index;
+            notifier.performChange('splice', function () {
+                for (i = 0; i < argumentsLength; i++) {
+                    index =  len + i;
+                    // avoid the usage of the set function and manually
+                    // set the value and notify the changes to avoid the notification of
+                    // multiple length modification
+                    self[index] = elements[i];
+                    notifier.notify({
+                        type : 'add',
+                        name : index
+                    });
+                }
+                Object.defineProperty(self, '_length', {
+                    value : len + argumentsLength,
+                    enumerable: false,
+                    configurable: true,
+                    writable: true
+                });
+                notifier.notify({ type: 'update', name: 'length', oldValue: len });
+                return {
+                    index : len,
+                    removed : [],
+                    addedCount: argumentsLength
+                };
             });
-          }
-          Object.defineProperty(self, "_length", {
-            value: len + argumentsLength,
-            enumerable: false,
-            configurable: true,
-            writable: true
-          });
-          notifier.notify({ type: "update", name: "length", oldValue: len });
-          return {
-            index: len,
-            removed: [],
-            addedCount: argumentsLength
-          };
-        });
-      }
-      return this.length;
+        }
+        return this.length;
     };
 
     /**
@@ -970,13 +1010,14 @@ define(["exports"], function (exports) {
      * @return {List}
      */
     List.prototype.reverse = function reverse() {
-      var copy = this.toArray(), arr = copy.slice().reverse();
+        var copy = this.toArray(),
+            arr = copy.slice().reverse();
 
-      for (var i = 0, l = arr.length; i < l; i++) {
-        this.set(i, arr[i]);
-      }
+        for (var i = 0, l = arr.length; i < l; i++) {
+            this.set(i, arr[i]);
+        }
 
-      return this;
+        return this;
     };
 
     /**
@@ -984,34 +1025,37 @@ define(["exports"], function (exports) {
      * @return {*}
      */
     List.prototype.shift = function () {
-      if (this.length === 0) {
-        return void (0);
-      }
-
-      var arr = this.toArray(), element = arr.shift(), notifier = Object.getNotifier(this), self = this, len = this.length;
-      notifier.performChange("splice", function () {
-        for (var i = 0, l = arr.length; i < l; i++) {
-          self.set(i, arr[i]);
+        if (this.length === 0) {
+            return void(0);
         }
-        self["delete"](len - 1);
 
-        Object.defineProperty(self, "_length", {
-          value: len - 1,
-          enumerable: false,
-          configurable: true,
-          writable: true
+        var arr = this.toArray(),
+            element = arr.shift(),
+            notifier = Object.getNotifier(this),
+            self = this, len = this.length;
+        notifier.performChange('splice', function () {
+            for (var i = 0, l = arr.length; i < l; i++) {
+                self.set(i, arr[i]);
+            }
+            self.delete(len - 1);
+
+            Object.defineProperty(self, '_length', {
+                value : len - 1,
+                enumerable: false,
+                configurable: true,
+                writable: true
+            });
+            notifier.notify({ type: 'update', name: 'length', oldValue: len });
+
+            return {
+                index : 0,
+                removed : [element],
+                addedCount: 0
+            };
         });
-        notifier.notify({ type: "update", name: "length", oldValue: len });
-
-        return {
-          index: 0,
-          removed: [element],
-          addedCount: 0
-        };
-      });
 
 
-      return element;
+        return element;
     };
 
     /**
@@ -1021,7 +1065,7 @@ define(["exports"], function (exports) {
      * @return {List}
      */
     List.prototype.slice = function (start, end) {
-      return List.fromArray(this.toArray().slice(start, end));
+        return List.fromArray(this.toArray().slice(start, end));
     };
 
     /**
@@ -1030,11 +1074,12 @@ define(["exports"], function (exports) {
      * @return {List}
      */
     List.prototype.sort = function (compareFn) {
-      var copy = this.toArray(), arr = copy.slice().sort(compareFn);
-      for (var i = 0, l = arr.length; i < l; i++) {
-        this.set(i, arr[i]);
-      }
-      return this;
+        var copy = this.toArray(),
+            arr = copy.slice().sort(compareFn);
+        for (var i = 0, l = arr.length; i < l; i++) {
+            this.set(i, arr[i]);
+        }
+        return this;
     };
 
     /**
@@ -1042,46 +1087,57 @@ define(["exports"], function (exports) {
      * @return {List}
      */
     List.prototype.splice = function () {
-      var returnValue = [], argumentsLength = arguments.length;
+        var returnValue = [],
+            argumentsLength = arguments.length;
 
-      if (argumentsLength > 0) {
-        var arr = this.toArray(), notifier = Object.getNotifier(this), len = this.length, self = this, index = arguments[0], i, l;
+        if (argumentsLength > 0) {
+            var arr = this.toArray(),
+                notifier = Object.getNotifier(this),
+                len = this.length,
+                self = this,
+                index = arguments[0],
+                i, l;
 
-        returnValue = Array.prototype.splice.apply(arr, arguments);
-        notifier.performChange("splice", function () {
-          for (i = 0, l = arr.length; i < l; i++) {
-            var oldValue = self[i];
-            if (!sameValue(oldValue, arr[i])) {
-              self[i] = arr[i];
-              notifier.notify(i >= len ? { type: "add", name: i } : { type: "update", name: i, oldValue: oldValue });
-            }
-          }
+            returnValue = Array.prototype.splice.apply(arr, arguments);
+            notifier.performChange('splice', function () {
+                for (i = 0, l = arr.length; i < l; i++) {
+                    var oldValue = self[i];
+                    if (!sameValue(oldValue, arr[i])) {
+                        self[i] = arr[i];
+                        notifier.notify(
+                            i >= len ?
+                                {type : 'add', name : i}:
+                                {type : 'update', name : i, oldValue : oldValue}
+                        );
+                    }
+                }
 
 
-          if (len !== arr.length) {
-            if (len > arr.length) {
-              //delete values if the length have been decreased
-              for (i = arr.length; i < len; i++) {
-                self["delete"](i);
-              }
-            }
+                if (len !== arr.length) {
+                    if (len > arr.length) {
+                        //delete values if the length have been decreased
+                        for (i = arr.length; i < len; i++) {
+                            self.delete(i);
+                        }
+                    }
 
-            Object.defineProperty(self, "_length", {
-              value: arr.length,
-              enumerable: false,
-              configurable: true,
-              writable: true
+                    Object.defineProperty(self, '_length', {
+                        value : arr.length,
+                        enumerable: false,
+                        configurable: true,
+                        writable: true
+                    });
+                    notifier.notify({ type: 'update', name: 'length', oldValue: len });
+                }
+                return {
+                    index : index,
+                    removed : returnValue,
+                    addedCount: argumentsLength >= 2 ? argumentsLength - 2 : 0
+                };
             });
-            notifier.notify({ type: "update", name: "length", oldValue: len });
-          }
-          return {
-            index: index,
-            removed: returnValue,
-            addedCount: argumentsLength >= 2 ? argumentsLength - 2 : 0
-          };
-        });
-      }
-      return List.fromArray(returnValue);
+
+        }
+        return List.fromArray(returnValue);
     };
 
     /**
@@ -1089,47 +1145,55 @@ define(["exports"], function (exports) {
      * @return {number}
      */
     List.prototype.unshift = function () {
-      var argumentsLength = arguments.length;
-      if (argumentsLength > 0) {
-        var arr = this.toArray(), notifier = Object.getNotifier(this), len = this.length, self = this;
+        var argumentsLength  = arguments.length;
+        if (argumentsLength > 0) {
+            var arr = this.toArray(),
+                notifier = Object.getNotifier(this),
+                len = this.length,
+                self = this;
 
-        Array.prototype.unshift.apply(arr, arguments);
-        notifier.performChange("splice", function () {
-          for (var i = 0, l = arr.length; i < l; i++) {
-            var oldValue = self[i];
-            if (!sameValue(oldValue, arr[i])) {
-              // avoid the usage of the set function and manually
-              // set the value and notify the changes to avoid the notification of
-              // multiple length modification
-              self[i] = arr[i];
-              notifier.notify(i >= len ? { type: "add", name: i } : { type: "update", name: i, oldValue: oldValue });
-            }
-          }
+            Array.prototype.unshift.apply(arr, arguments);
+            notifier.performChange('splice', function () {
+                for (var i = 0, l = arr.length; i < l; i++)  {
+                    var oldValue = self[i];
+                    if (!sameValue(oldValue, arr[i])) {
+                        // avoid the usage of the set function and manually
+                        // set the value and notify the changes to avoid the notification of
+                        // multiple length modification
+                        self[i] = arr[i];
+                        notifier.notify(
+                            i >= len ?
+                                {type : 'add', name : i}:
+                                {type : 'update', name : i, oldValue : oldValue}
+                        );
+                    }
+                }
 
-          if (len !== arr.length) {
-            if (len > arr.length) {
-              //delete values if the length have been decreased
-              for (i = arr.length; i < len; i++) {
-                self["delete"](i);
-              }
-            }
-            Object.defineProperty(self, "_length", {
-              value: arr.length,
-              enumerable: false,
-              configurable: true,
-              writable: true
+                if (len !== arr.length) {
+                    if (len > arr.length) {
+                        //delete values if the length have been decreased
+                        for (i = arr.length; i < len; i++) {
+                            self.delete(i);
+                        }
+                    }
+                    Object.defineProperty(self, '_length', {
+                        value : arr.length,
+                        enumerable: false,
+                        configurable: true,
+                        writable: true
+                    });
+                    notifier.notify({ type: 'update', name: 'length', oldValue: len });
+                }
+
+                return {
+                    index : 0,
+                    removed : [],
+                    addedCount: argumentsLength
+                };
             });
-            notifier.notify({ type: "update", name: "length", oldValue: len });
-          }
 
-          return {
-            index: 0,
-            removed: [],
-            addedCount: argumentsLength
-          };
-        });
-      }
-      return this.length;
+        }
+        return this.length;
     };
 
     /**
@@ -1138,7 +1202,7 @@ define(["exports"], function (exports) {
      * @param {Object} [initialValue]
      * @return {Object}
      */
-    List.prototype.reduce = Array.prototype.reduce;
+    List.prototype.reduce =  Array.prototype.reduce;
 
     /**
      * Apply a function simultaneously against two values of the array (from right-to-left) as to reduce it to a single value.
@@ -1146,7 +1210,7 @@ define(["exports"], function (exports) {
      * @param {Object} [initialValue]
      * @return {Object}
      */
-    List.prototype.reduceRight = Array.prototype.reduceRight;
+    List.prototype.reduceRight =  Array.prototype.reduceRight;
 
     /**
      * Returns the first index at which a given element can be found in the List, or -1 if it is not present.
@@ -1154,7 +1218,7 @@ define(["exports"], function (exports) {
      * @param {number} [fromIndex]
      * @return {number}
      */
-    List.prototype.indexOf = Array.prototype.indexOf;
+    List.prototype.indexOf =  Array.prototype.indexOf;
 
     /**
      * Returns the last index at which a given element can be found in the List, or -1 if it is not present. The List is searched backwards, starting at fromIndex.
@@ -1179,7 +1243,7 @@ define(["exports"], function (exports) {
      * @return {List}
      */
     List.prototype.filter = function (callback, thisObject) {
-      return List.fromArray(this.toArray().filter(callback, thisObject));
+        return List.fromArray(this.toArray().filter(callback, thisObject));
     };
 
     /**
@@ -1197,7 +1261,7 @@ define(["exports"], function (exports) {
      * @return {List}
      */
     List.prototype.map = function (callback, thisObject) {
-      return List.fromArray(this.toArray().map(callback, thisObject));
+        return List.fromArray(this.toArray().map(callback, thisObject));
     };
 
     /**
@@ -1209,148 +1273,148 @@ define(["exports"], function (exports) {
     List.prototype.some = Array.prototype.some;
 
     ObserveUtils.List = List;
-  })(this);
-  define(["exports"], function (exports) {
-    "use strict";
 
-    var Model = (function () {
-      var Model = function Model(properties) {
-        var _this = this;
-        properties = properties || {};
+})(this);
+define(["exports"], function (exports) {
+  "use strict";
 
-        for (var key in properties) {
-          this[key] = properties[key];
-        }
+  var Model = (function () {
+    var Model = function Model(properties) {
+      var _this = this;
+      properties = properties || {};
 
-        this.observableProperties = {};
+      for (var key in properties) {
+        this[key] = properties[key];
+      }
 
-        Object.observe(this, function (changes) {
-          changes.forEach(function (change) {
-            var handlers = _this.observableProperties[change.name];
-            if (handlers) {
-              handlers.forEach(function (handler) {
-                handler(change);
-              });
-            }
-          });
-        });
-      };
+      this.observableProperties = {};
 
-      Model.prototype.on = function (property, handler) {
-        if (typeof handler !== "function") {
-          return;
-        }
-
-        if (!this.observableProperties[property]) {
-          ObserveUtils.defineObservableProperties(this, property);
-          this.observableProperties[property] = [];
-        }
-
-        this.observableProperties[property].push(handler);
-      };
-
-      return Model;
-    })();
-
-    exports.Model = Model;
-
-
-    /**
-     * View
-     */
-    var events = {};
-
-    var View = (function () {
-      var View = function View(options) {
-        options = options || {};
-
-        for (var key in options) {
-          this[key] = options[key];
-        }
-
-        if (!this.el) {
-          this.el = document.createElement("div");
-        }
-      };
-
-      View.prototype.init = function (controller) {
-        this.controller = controller;
-
-        return this;
-      };
-
-      View.prototype.render = function () {
-        this.el.innerHTML = this.template();
-      };
-
-      View.prototype.template = function () {
-        return "";
-      };
-
-      View.prototype.$ = function (selector) {
-        return this.el.querySelector(selector);
-      };
-
-      View.prototype.$$ = function (selector) {
-        return this.el.querySelectorAll(selector);
-      };
-
-      View.prototype.on = function (type, selector, handler) {
-        if (!events[type]) {
-          events[type] = [];
-          window.addEventListener(type, delegateHandler, true);
-        }
-
-        events[type].push({
-          selector: selector,
-          handler: handler
-        });
-      };
-
-      View.prototype.off = function (type, selector, handler) {
-        if (!events[type]) {
-          return;
-        }
-
-        events[type] = events[type].filter(function (delegate) {
-          if (typeof handler === "function") {
-            return delegate.selector !== selector || delegate.handler !== handler;
+      Object.observe(this, function (changes) {
+        changes.forEach(function (change) {
+          var handlers = _this.observableProperties[change.name];
+          if (handlers) {
+            handlers.forEach(function (handler) {
+              handler(change);
+            });
           }
-
-          return delegate.selector !== selector;
         });
-      };
-
-      return View;
-    })();
-
-    exports.View = View;
-
-
-    function delegateHandler(event) {
-      var target = event.target;
-
-      events[event.type].forEach(function (delegate) {
-        if (target.matches(delegate.selector)) {
-          delegate.handler.call(target, event);
-        }
       });
-    }
+    };
 
-    var Controller = function Controller(options) {
+    Model.prototype.on = function (property, handler) {
+      if (typeof handler !== "function") {
+        return;
+      }
+
+      if (!this.observableProperties[property]) {
+        ObserveUtils.defineObservableProperties(this, property);
+        this.observableProperties[property] = [];
+      }
+
+      this.observableProperties[property].push(handler);
+    };
+
+    return Model;
+  })();
+
+  exports.Model = Model;
+
+
+  /**
+   * View
+   */
+  var events = {};
+
+  var View = (function () {
+    var View = function View(options) {
       options = options || {};
 
       for (var key in options) {
         this[key] = options[key];
       }
 
-      // Initialize the view (if applicable) when the
-      // controller is instantiated.
-      if (this.view && typeof this.view.init === "function") {
-        this.view.init(this);
+      if (!this.el) {
+        this.el = document.createElement("div");
       }
     };
 
-    exports.Controller = Controller;
-  });
+    View.prototype.init = function (controller) {
+      this.controller = controller;
+
+      return this;
+    };
+
+    View.prototype.render = function () {
+      this.el.innerHTML = this.template();
+    };
+
+    View.prototype.template = function () {
+      return "";
+    };
+
+    View.prototype.$ = function (selector) {
+      return this.el.querySelector(selector);
+    };
+
+    View.prototype.$$ = function (selector) {
+      return this.el.querySelectorAll(selector);
+    };
+
+    View.prototype.on = function (type, selector, handler) {
+      if (!events[type]) {
+        events[type] = [];
+        window.addEventListener(type, delegateHandler, true);
+      }
+
+      events[type].push({
+        selector: selector,
+        handler: handler
+      });
+    };
+
+    View.prototype.off = function (type, selector, handler) {
+      if (!events[type]) {
+        return;
+      }
+
+      events[type] = events[type].filter(function (delegate) {
+        if (typeof handler === "function") {
+          return delegate.selector !== selector || delegate.handler !== handler;
+        }
+
+        return delegate.selector !== selector;
+      });
+    };
+
+    return View;
+  })();
+
+  exports.View = View;
+
+
+  function delegateHandler(event) {
+    var target = event.target;
+
+    events[event.type].forEach(function (delegate) {
+      if (target.matches(delegate.selector)) {
+        delegate.handler.call(target, event);
+      }
+    });
+  }
+
+  var Controller = function Controller(options) {
+    options = options || {};
+
+    for (var key in options) {
+      this[key] = options[key];
+    }
+
+    // Initialize the view (if applicable) when the
+    // controller is instantiated.
+    if (this.view && typeof this.view.init === "function") {
+      this.view.init(this);
+    }
+  };
+
+  exports.Controller = Controller;
 });
